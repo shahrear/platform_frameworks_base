@@ -40,6 +40,8 @@ import android.os.SystemClock;
 import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.storage.IMountService;
+//shah mar 28 2017
+import com.android.server.ExecutionZoneService;
 import android.util.DisplayMetrics;
 import android.util.EventLog;
 import android.util.Slog;
@@ -484,6 +486,17 @@ public final class SystemServer {
             Slog.i(TAG, "Consumer IR Service");
             consumerIr = new ConsumerIrService(context);
             ServiceManager.addService(Context.CONSUMER_IR_SERVICE, consumerIr);
+
+            //shah mar 28 2017
+            //try {
+            Slog.i(TAG, "Starting ExecutionZone Service");
+            ServiceManager.addService(Context.EXECUTIONZONE_SERVICE, new ExecutionZoneService(context));
+            Slog.i(TAG, "ExecutionZone Service Started");
+//            } catch (Throwable e) {
+//                Slog.e(TAG, "Failure starting ExecutionZoneService Service", e);
+//            }
+
+            //shah
 
             mSystemServiceManager.startService(AlarmManagerService.class);
             alarm = IAlarmManager.Stub.asInterface(

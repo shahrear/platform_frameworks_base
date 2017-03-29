@@ -96,6 +96,8 @@ import android.os.UserHandle;
 import android.os.UserManager;
 import android.os.Vibrator;
 import android.os.storage.StorageManager;
+//shah mar 28 2017 @home
+import android.samshah.ExecutionZoneManager;
 import android.print.IPrintManager;
 import android.print.PrintManager;
 import android.hardware.fingerprint.FingerprintManager;
@@ -329,6 +331,14 @@ final class SystemServiceRegistry {
                 IBinder b = ServiceManager.getService(Context.LOCATION_SERVICE);
                 return new LocationManager(ctx, ILocationManager.Stub.asInterface(b));
             }});
+
+        //shah mar 28 2017
+        registerService(Context.EXECUTIONZONE_SERVICE, ExecutionZoneManager.class,
+                new StaticServiceFetcher<ExecutionZoneManager>() {
+                    @Override
+                    public ExecutionZoneManager createService() {
+                        return ExecutionZoneManager.getExecutionZoneManager();
+                    }});
 
         registerService(Context.NETWORK_POLICY_SERVICE, NetworkPolicyManager.class,
                 new CachedServiceFetcher<NetworkPolicyManager>() {

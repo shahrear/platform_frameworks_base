@@ -172,6 +172,7 @@ import android.os.storage.StorageEventListener;
 import android.os.storage.StorageManager;
 import android.os.storage.VolumeInfo;
 import android.os.storage.VolumeRecord;
+import android.samshah.ExecutionZoneManager;
 import android.security.KeyStore;
 import android.security.SystemKeyStore;
 import android.system.ErrnoException;
@@ -298,6 +299,11 @@ public class PackageManagerService extends IPackageManager.Stub {
     private static final boolean DEBUG_VERIFY = false;
     private static final boolean DEBUG_DEXOPT = false;
     private static final boolean DEBUG_ABI_SELECTION = false;
+
+
+    //shah mar 28 2017
+    private static final boolean DEBUG_ENABLE_SHAH = true;
+
 
     static final boolean CLEAR_RUNTIME_PERMISSIONS_ON_UPGRADE = false;
 
@@ -3167,6 +3173,17 @@ public class PackageManagerService extends IPackageManager.Stub {
             return PackageManager.PERMISSION_DENIED;
         }
 
+        if(userId > 10000)
+        {
+            int ret = checkZonePermission(permName, userId);
+            if(DEBUG_ENABLE_SHAH) Log.d("PMSHAHCHECKPERMISSION", "SHAH IN checkpermission in pm permname: "+permName+" userid:"+userId+" ret from check: "+ret);
+            if(ret != PackageManager.PERMISSION_GRANTED)
+            {
+                if(DEBUG_ENABLE_SHAH) Log.d("PMSHAHCHECKPERMISSION", "SHAH IN checkpermission in pm permname: "+permName+" pkgname: "+pkgName+" userid:"+userId+" DENIED BY SHAH");
+                return PackageManager.PERMISSION_DENIED;
+            }
+        }
+
         synchronized (mPackages) {
             final PackageParser.Package p = mPackages.get(pkgName);
             if (p != null && p.mExtras != null) {
@@ -3192,6 +3209,18 @@ public class PackageManagerService extends IPackageManager.Stub {
 
         if (!sUserManager.exists(userId)) {
             return PackageManager.PERMISSION_DENIED;
+        }
+
+        if(uid > 10000)
+        {
+
+            int ret = checkZonePermission(permName, uid);
+            if(DEBUG_ENABLE_SHAH) Log.d("PMSHAHCHECKPERMISSION", "SHAH IN checkUIDpermission in pm permname: "+permName+" userid:"+uid+" ret from check: "+ret);
+            if(ret != PackageManager.PERMISSION_GRANTED)
+            {
+                if(DEBUG_ENABLE_SHAH) Log.d("PMSHAHCHECKPERMISSION", "SHAH IN checkUIDpermission in pm permname: "+permName+" userid:"+uid+" DENIED BY SHAH");
+                return PackageManager.PERMISSION_DENIED;
+            }
         }
 
         synchronized (mPackages) {
@@ -3221,6 +3250,27 @@ public class PackageManagerService extends IPackageManager.Stub {
             }
         }
 
+        return PackageManager.PERMISSION_DENIED;
+    }
+
+    /** @hide */
+    // shah shah mar 28 2017
+    public static int checkZonePermission(String permission, int uid) {
+        try {
+
+            Log.d("PMSHAHCHECKZONEPERMISSION","shah in checkZonePermission, permission: "+permission+" uid: "+uid);
+
+            ExecutionZoneManager mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+
+            return mExecutionZoneManager.checkZonePermission(permission, uid);
+
+
+        } catch (Exception e) {
+            // Should never happen, but if it does... deny!
+            Log.e("PMSHAHCHECKZONEPERMISSION","shah Error in checkZonePermission, permission: "+permission+" uid: "+uid);
+
+            Slog.e("PMSHAHCHECKZONEPERMISSION", "Someone is dead?!?", e);
+        }
         return PackageManager.PERMISSION_DENIED;
     }
 
@@ -11798,6 +11848,21 @@ public class PackageManagerService extends IPackageManager.Stub {
                         dataDirExists ? PackageManager.DELETE_KEEP_DATA : 0,
                                 res.removedInfo, true);
             }
+            //after successful installation, add zone info shah mar 28 2017
+            else if(res.returnCode == PackageManager.INSTALL_SUCCEEDED) //shah added here
+            {
+                if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone NEW app: "+pkgName+" when installing, as the code may be changed");
+                try {
+                    mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+
+                    mExecutionZoneManager.setZone(pkgName, "NEW");
+                }
+                catch(Exception e)
+                {
+                    Log.e(TAG,"oops shah!! something wrong happened when assigning zone NEW to app: "+pkgName+" when installing!! :(. exception message: "+e.getMessage());
+                }
+            }
+
 
         } catch (PackageManagerException e) {
             res.setError("Package couldn't be installed in " + pkg.codePath, e);
@@ -11977,6 +12042,21 @@ public class PackageManagerService extends IPackageManager.Stub {
                     mSettings.writeLPr();
                 }
                 Slog.i(TAG, "Successfully restored package : " + pkgName + " after failed upgrade");
+            }
+        }
+
+        //after successful installation, add zone info shah mar 28 2017
+        else if(res.returnCode == PackageManager.INSTALL_SUCCEEDED) //shah added here
+        {
+            if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone NEW app: "+pkgName+" when updating/replacing, as the code may be changed");
+            try {
+                mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+
+                mExecutionZoneManager.setZone(pkgName, "NEW");
+            }
+            catch(Exception e)
+            {
+                Log.e(TAG,"oops shah!! something wrong happened when assigning zone NEW to app: "+pkgName+" when replacing/updating!! :(. exception message: "+e.getMessage());
             }
         }
     }
@@ -13272,6 +13352,22 @@ public class PackageManagerService extends IPackageManager.Stub {
             ret = deleteInstalledPackageLI(ps, deleteCodeAndResources, flags,
                     allUserHandles, perUserInstalled,
                     outInfo, writeSettings);
+        }
+
+        //shah mar 28 2017
+        if(ret == true)
+        {
+            //SHAH SHAH OCT 16 set zone of the uninstalled app to uninstalled
+            if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone UNINSTALLED app: "+ps.name+" when uninstalling");
+            try {
+                mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+
+                mExecutionZoneManager.setZone(ps.name, "UNINSTALLED");
+            }
+            catch(Exception e)
+            {
+                Log.e(TAG,"oops shah!! something wrong happened when assigning zone UNINSTALLED to app: "+ps.name+" when uninstalling!! :(. exception message: "+e.getMessage());
+            }
         }
 
         return ret;

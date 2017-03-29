@@ -2511,6 +2511,7 @@ public abstract class Context {
             MEDIA_PROJECTION_SERVICE,
             MIDI_SERVICE,
             RADIO_SERVICE,
+            EXECUTIONZONE_SERVICE,
     })
     @Retention(RetentionPolicy.SOURCE)
     public @interface ServiceName {}
@@ -3122,6 +3123,15 @@ public abstract class Context {
      * @see #getSystemService
      */
     public static final String DEVICE_POLICY_SERVICE = "device_policy";
+
+    //shah mar 28 2017
+    /**
+     * Use with {@link #getSystemService} to retrieve a
+     * {@link android.samshah.ExecutionZoneManager} for controlling Execution Zones
+     *
+     * @see #getSystemService
+     */
+    public static final String EXECUTIONZONE_SERVICE = "execution_zone";
 
     /**
      * Use with {@link #getSystemService} to retrieve a
