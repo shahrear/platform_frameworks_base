@@ -10,7 +10,7 @@ package android.samshah;
  */
 import android.util.Log;
 import android.os.IBinder;
-import android.os.IExecutionZoneService;
+import android.samshah.IExecutionZoneService;
 import android.os.RemoteException;
 import android.util.Log;
 import android.content.Context;
