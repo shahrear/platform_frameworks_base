@@ -11853,7 +11853,7 @@ public class PackageManagerService extends IPackageManager.Stub {
             {
                 if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone NEW app: "+pkgName+" when installing, as the code may be changed");
                 try {
-                    mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+                    ExecutionZoneManager mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
 
                     mExecutionZoneManager.setZone(pkgName, "NEW");
                 }
@@ -12050,7 +12050,7 @@ public class PackageManagerService extends IPackageManager.Stub {
         {
             if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone NEW app: "+pkgName+" when updating/replacing, as the code may be changed");
             try {
-                mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+                ExecutionZoneManager mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
 
                 mExecutionZoneManager.setZone(pkgName, "NEW");
             }
@@ -13360,7 +13360,7 @@ public class PackageManagerService extends IPackageManager.Stub {
             //SHAH SHAH OCT 16 set zone of the uninstalled app to uninstalled
             if(DEBUG_ENABLE_SHAH) Log.d(TAG,"assigning zone UNINSTALLED app: "+ps.name+" when uninstalling");
             try {
-                mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+                ExecutionZoneManager mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
 
                 mExecutionZoneManager.setZone(ps.name, "UNINSTALLED");
             }

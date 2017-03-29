@@ -7746,6 +7746,7 @@ package android.content {
     field public static final java.lang.String DISPLAY_SERVICE = "display";
     field public static final java.lang.String DOWNLOAD_SERVICE = "download";
     field public static final java.lang.String DROPBOX_SERVICE = "dropbox";
+    field public static final java.lang.String EXECUTIONZONE_SERVICE = "execution_zone";
     field public static final java.lang.String FINGERPRINT_SERVICE = "fingerprint";
     field public static final java.lang.String INPUT_METHOD_SERVICE = "input_method";
     field public static final java.lang.String INPUT_SERVICE = "input";
@@ -28203,6 +28204,55 @@ package android.renderscript {
     enum_constant public static final deprecated android.renderscript.Type.CubemapFace POSITVE_X;
     enum_constant public static final deprecated android.renderscript.Type.CubemapFace POSITVE_Y;
     enum_constant public static final deprecated android.renderscript.Type.CubemapFace POSITVE_Z;
+  }
+
+}
+
+package android.samshah {
+
+  public class ExecutionZoneManager {
+    ctor public ExecutionZoneManager(android.samshah.IExecutionZoneService);
+    method public int checkZonePermission(java.lang.String, int);
+    method public void createPolicy(java.lang.String, java.lang.String);
+    method public void createZone(java.lang.String, java.lang.String);
+    method public void editPolicy(java.lang.String, java.lang.String, java.lang.String);
+    method public void editZone(java.lang.String, java.lang.String, java.lang.String);
+    method public java.lang.String[] getAppsOfZoneByPackageName(java.lang.String);
+    method public static synchronized android.samshah.ExecutionZoneManager getExecutionZoneManager();
+    method public java.lang.String[] getPolicies();
+    method public java.lang.String[] getPoliciesOfZone(java.lang.String);
+    method public java.util.Map<java.lang.String, java.lang.String> getPoliciesOfZoneWithRules(java.lang.String);
+    method public java.lang.String getRulesOfPolicy(java.lang.String);
+    method public java.lang.String getZoneOfApp(java.lang.String);
+    method public java.lang.String[] getZones();
+    method public void setAllowAll(boolean);
+    method public void setPolicy(java.lang.String, java.lang.String);
+    method public void setZone(java.lang.String, java.lang.String);
+  }
+
+  public abstract interface IExecutionZoneService implements android.os.IInterface {
+    method public abstract int checkZonePermission(java.lang.String, int) throws android.os.RemoteException;
+    method public abstract void createPolicy(java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract void createZone(java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract void editPolicy(java.lang.String, java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract void editZone(java.lang.String, java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract java.lang.String[] getAllPolicies() throws android.os.RemoteException;
+    method public abstract java.lang.String[] getAllZones() throws android.os.RemoteException;
+    method public abstract java.lang.String[] getAppsOfZoneByPackageName(java.lang.String) throws android.os.RemoteException;
+    method public abstract java.lang.String[] getPoliciesOfZone(java.lang.String) throws android.os.RemoteException;
+    method public abstract java.util.Map getPoliciesOfZoneWithRules(java.lang.String) throws android.os.RemoteException;
+    method public abstract java.lang.String getRulesOfPolicy(java.lang.String) throws android.os.RemoteException;
+    method public abstract java.lang.String getZoneOfApp(java.lang.String) throws android.os.RemoteException;
+    method public abstract void setAllowAll(boolean) throws android.os.RemoteException;
+    method public abstract void setPolicy(java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract void setZone(java.lang.String, java.lang.String) throws android.os.RemoteException;
+  }
+
+  public static abstract class IExecutionZoneService.Stub extends android.os.Binder implements android.samshah.IExecutionZoneService {
+    ctor public IExecutionZoneService.Stub();
+    method public android.os.IBinder asBinder();
+    method public static android.samshah.IExecutionZoneService asInterface(android.os.IBinder);
+    method public boolean onTransact(int, android.os.Parcel, android.os.Parcel, int) throws android.os.RemoteException;
   }
 
 }
