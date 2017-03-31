@@ -223,6 +223,28 @@ public class ExecutionZoneManager {
     }
 
     /**
+     * Get all zone names
+     */
+    public String[] getAllApps()
+    {
+        String []zones = null;
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Going to call getZones service from ExecutionZoneManager");
+            long shahStarttime = System.currentTimeMillis();
+            zones = mExecutionZoneService.getAllApps();
+            long shahStopTime = System.currentTimeMillis();
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Service getZones called successfully from ExecutionZoneManager, time elapsed: " +(shahStopTime - shahStarttime));
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call getzones service from ExecutionZoneManager, Exception Message: " + e.getMessage());
+        }
+
+        return zones;
+    }
+
+    /**
      * Get all apps of a zone
      */
     public String[] getAppsOfZoneByPackageName(String zonename)

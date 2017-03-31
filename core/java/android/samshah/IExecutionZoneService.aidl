@@ -21,6 +21,7 @@ interface IExecutionZoneService {
         int checkZonePermission(String permission, int uid);
         String[] getAllZones();
         String[] getAllPolicies();
+        String[] getAllApps();
         String getRulesOfPolicy(String policname);
         String getZoneOfApp(String packagename);
         String[] getPoliciesOfZone(String zonename);

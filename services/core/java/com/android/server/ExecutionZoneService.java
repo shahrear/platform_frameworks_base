@@ -632,6 +632,35 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         return zones;
 
     }
+
+    public String[] getAllApps()
+    {
+        final SQLiteDatabase db = openHelper.getReadableDatabase();
+        String[] apps = null;
+
+        try {
+            Cursor c = db.rawQuery("SELECT " + APPZONES_APP_NAME + " FROM " + TABLE_APPZONES, null);
+            apps = new String[c.getCount()];
+            if(DEBUG_ENABLE)
+                Log.d(TAG,"Log shah in getallapps for executionzoneservice, number of apps returned by query: "+c.getCount());
+            int i = 0;
+            if(c.moveToFirst()){
+                do{
+                    //assing values
+                    apps[i++] = c.getString(0);
+
+                }while(c.moveToNext());
+            }
+            c.close();
+        }
+        catch (Exception e) {
+            // Log, don't crash!
+            Log.e(TAG, "Log SHAH Exception in getAllApps, message: "+e.getMessage());
+        }
+
+        return apps;
+
+    }
     public String[] getAllPolicies()
     {
         final SQLiteDatabase db = openHelper.getReadableDatabase();
