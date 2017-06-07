@@ -145,6 +145,7 @@ public class IntentFirewall {
     public boolean checkIntent(FirewallIntentResolver resolver, ComponentName resolvedComponent,
             int intentType, Intent intent, int callerUid, int callerPid, String resolvedType,
             int receivingUid) {
+        //shah
         boolean log = false;
         boolean block = false;
 
@@ -174,11 +175,28 @@ public class IntentFirewall {
             }
         }
 
+        //shah June 05, 2017
+        logIntentShah(intentType, intent, callerUid, receivingUid,resolvedType);
+
         if (log) {
             logIntent(intentType, intent, callerUid, resolvedType);
         }
 
         return !block;
+    }
+
+    private static void logIntentShah(int intentType, Intent intent, int callerUid, int receivingUid,
+                                  String resolvedType) {
+
+        ComponentName cn = intent.getComponent();
+        String shortComponent = null;
+        if (cn != null) {
+            shortComponent = cn.flattenToShortString();
+        }
+
+        Slog.d("IFSHAHSAM", "shah in intent firewall, calleruid, receiving uid: " + callerUid + ", r uid: " + receivingUid + " " + intentType + " " + shortComponent + " " + intent.getAction() + " " +
+                resolvedType + " " + intent.getDataString() + " " + intent.getFlags());
+
     }
 
     private static void logIntent(int intentType, Intent intent, int callerUid,
