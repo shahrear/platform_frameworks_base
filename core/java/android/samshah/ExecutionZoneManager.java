@@ -55,6 +55,53 @@ public class ExecutionZoneManager {
 
     /**
      * Sets the value in Service
+     * @param agentName The name of the agent
+     * @param requestInfo Request Info: interval,duration,repeat,repeatgap
+     * @param applist App list
+     * @param requester Requester package name
+     */
+    public void startAgent (String agentName, String requestInfo, String applist, String requester) {
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Going to call startAgent service from ExecutionZoneManager");
+            long shahStarttime = System.currentTimeMillis();
+            mExecutionZoneService.startAgent(agentName, requestInfo, applist, requester);
+            long shahStopTime = System.currentTimeMillis();
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH startAgent called successfully from ExecutionZoneManager, time elapsed: "+(shahStopTime - shahStarttime));
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call startAgent service from ExecutionZoneManager, Exception Message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Sets the value in Service
+     * @param agentName The name of the agent
+     * @param requester Requester
+     */
+    public String getMonitoringResult(String agentName, String requester){
+        String filePath = "";
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Going to call getMonitoringResult from ExecutionZoneManager");
+            long shahStarttime = System.currentTimeMillis();
+            filePath = mExecutionZoneService.getMonitoringResult(agentName,requester);
+            long shahStopTime = System.currentTimeMillis();
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH getMonitoringResult called successfully from ExecutionZoneManager, time elapsed: "+(shahStopTime - shahStarttime));
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call getMonitoringResult from ExecutionZoneManager, Exception Message: " + e.getMessage());
+            return null;
+        }
+
+        return filePath;
+    }
+
+
+    /**
+     * Sets the value in Service
      * @param zoneName The name of the zone
      * @param policyList Policy list
      */

@@ -14,6 +14,7 @@ import android.os.Looper;
 import android.os.Bundle;
 import android.content.Context;
 import android.os.Message;
+import android.text.format.Time;
 import android.util.Log;
 import java.io.File;
 import java.text.SimpleDateFormat;
@@ -59,6 +60,27 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     private static final String ZONEPOLICIES_ZONE_ID = "zone_id";
     private static final String ZONEPOLICIES_POLICYLIST = "policy_list";
 
+
+    //shah monitoring jul 17 2017
+    private static final String TABLE_MONITROING_REQUESTS = "monreqs";
+    private static final String MONITROING_REQUESTS_ID = "_id";
+    private static final String MONITROING_REQUESTS_REQUESTER = "requester";
+    private static final String MONITROING_REQUESTS_AGENTNAME = "agentname";
+    private static final String MONITROING_REQUESTS_REQTIME = "reqtime";
+    private static final String MONITROING_REQUESTS_REQINFO = "reqinfo";
+    private static final String MONITROING_REQUESTS_APPLIST = "applist";
+    private static final String MONITROING_REQUESTS_DONE = "done";
+    private static final String MONITROING_REQUESTS_CONSUMED = "consumed";
+
+    private static final String TABLE_MONITROING_DATA = "mondata";
+    private static final String MONITROING_DATA_ID = "_id";
+    private static final String MONITROING_DATA_REQUEST_ID = "reqid";
+    private static final String MONITROING_DATA_DATAFILE = "datafile";
+
+
+
+    //shah monitoring jul 17 2017
+
     private static boolean ALLOWALL_ENABLE = false;
 
     private final Object zonedbLock = new Object();
@@ -99,6 +121,10 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         private static final int SET_POLICY = 201;
         private static final int EDIT_POLICY = 202;
 
+        //SHAH monitoring jul 17 2017
+        private static final int START_AGENT = 300;
+
+
 
         @Override
         public void handleMessage(Message msg) {
@@ -136,6 +162,11 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     if(setPolicyToZone(msg.getData().getString("policyname"), msg.getData().getString("zonename")))
                         Log.i(TAG, "Log SHAH set policy to zone successfully.");
                 }
+                if (msg.what == START_AGENT) {
+                    Log.i(TAG,"start agent message received: agentname: " + msg.getData().getString("agentname") + " from " + msg.getData().getString("requester"));
+                    if(startAgentForMonitoring(msg.getData().getString("agentname"), msg.getData().getString("requestinfo"), msg.getData().getString("applist"), msg.getData().getString("requester")))
+                        Log.i(TAG, "Log SHAH started agent "+ msg.getData().getString("agentname") + " successfully for " + msg.getData().getString("requester"));
+                }
             } catch (Exception e) {
                 // Log, don't crash!
                 Log.e(TAG, "Log SHAH Exception in handleMessage");
@@ -147,6 +178,162 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     {
         ALLOWALL_ENABLE = b;
     }
+
+    public String getMonitoringResult(String agentName, String requester)
+    {
+        final SQLiteDatabase db = openHelper.getReadableDatabase();
+        String logFile = null;
+
+        if(DEBUG_ENABLE)
+            Log.d(TAG,"SHAH Debug Log in getMonitoringResult of requester: "+ requester + " agent: " + agentName);
+
+        try {
+            zonename = DatabaseUtils.stringForQuery(db,"SELECT Z." + ZONES_NAME + " FROM " + TABLE_ZONES
+                            + " Z INNER JOIN "+TABLE_APPZONES+" AZ ON Z." + ZONES_ID + "=AZ." + APPZONES_ZONE_ID + " WHERE AZ." + APPZONES_APP_NAME + "=?",
+                    new String[]{packagename});
+        }
+        catch (Exception e) {
+            // Log, don't crash!
+            Log.e(TAG, "Log SHAH Exception in getMonitoringResult, message: "+e.getMessage());
+        }
+
+        return zonename;
+
+    }
+
+
+    public void startAgent(String agentName, String requestInfo, String applist, String requester) {
+        Log.i(TAG, "Log SHAH startAgent for " + requester);
+
+        // Creating Bundle object
+        Bundle b = new Bundle();
+
+        // Storing data into bundle
+        b.putString("agentname", agentName);
+        b.putString("requestinfo", requestInfo);
+        b.putString("applist", applist);
+        b.putString("requester", requester);
+
+        Message msg = Message.obtain();
+        msg.what = ExecutionZoneWorkerHandler.START_AGENT;
+        msg.setData(b);
+        mHandler.sendMessage(msg);
+    }
+
+    private boolean startAgentForMonitoring(String agentName, String requestInfo, String applist, String requester) {
+        Log.i(TAG, "Log SHAH startAgentForMonitoring for " + requester);
+
+        synchronized (zonedbLock) {
+            final SQLiteDatabase db = openHelper.getWritableDatabase();
+            db.beginTransaction();
+            try {
+                ContentValues values = new ContentValues();
+
+                Time t = new Time();
+                t.setToNow();
+
+
+                if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
+                {
+                    values.put(MONITROING_REQUESTS_REQUESTER, requester);
+                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
+                    values.put(MONITROING_REQUESTS_REQTIME, t.toString());
+                    values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+
+
+                    long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
+
+                    if (reqId < 0) {
+                        Log.w(TAG, "Log SHAH insert monitoring req into database failed: " + requester + " for agent: " + agentName
+                                + ", skipping the DB insert");
+                        db.close();
+                        return false;
+                    }
+                }
+                else if(agentName.toUpperCase() == "INTENTS")
+                {
+                    values.put(MONITROING_REQUESTS_REQUESTER, requester);
+                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
+                    values.put(MONITROING_REQUESTS_REQTIME, t.toString());
+                    values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+
+
+                    long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
+
+                    if (reqId < 0) {
+                        Log.w(TAG, "Log SHAH insert monitoring req into database failed: " + requester + " for agent: " + agentName
+                                + ", skipping the DB insert");
+                        db.close();
+                        return false;
+                    }
+                }
+                else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
+                {
+                    values.put(MONITROING_REQUESTS_REQUESTER, requester);
+                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
+                    values.put(MONITROING_REQUESTS_REQTIME, t.toString());
+                    values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+
+
+                    long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
+
+                    if (reqId < 0) {
+                        Log.w(TAG, "Log SHAH insert monitoring req into database failed: " + requester + " for agent: " + agentName
+                                + ", skipping the DB insert");
+                        db.close();
+                        return false;
+                    }
+                }
+                else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
+                {
+                    values.put(MONITROING_REQUESTS_REQUESTER, requester);
+                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
+                    values.put(MONITROING_REQUESTS_REQTIME, t.toString());
+                    values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+
+
+                    long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
+
+                    if (reqId < 0) {
+                        Log.w(TAG, "Log SHAH insert monitoring req into database failed: " + requester + " for agent: " + agentName
+                                + ", skipping the DB insert");
+                        db.close();
+                        return false;
+                    }
+                }
+                else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
+                {
+                    values.put(MONITROING_REQUESTS_REQUESTER, requester);
+                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
+                    values.put(MONITROING_REQUESTS_REQTIME, t.toString());
+                    values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+
+
+                    long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
+
+                    if (reqId < 0) {
+                        Log.w(TAG, "Log SHAH insert monitoring req into database failed: " + requester + " for agent: " + agentName
+                                + ", skipping the DB insert");
+                        db.close();
+                        return false;
+                    }
+                }
+                db.setTransactionSuccessful();
+            } finally {
+                db.endTransaction();
+                db.close();
+            }
+
+        }
+
+        return true;
+    }
+
 
 
     public void setZone(String packageName, String zoneName) {
@@ -1340,6 +1527,24 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         + zoneID
                         + ", '" + policyID + ";'"
                         + ");");
+
+                //shah monitoring jul 17 2017
+                //adding tables for monitoring
+                db.execSQL("CREATE TABLE " + TABLE_MONITROING_REQUESTS + " (  "
+                        + MONITROING_REQUESTS_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,  "
+                        + MONITROING_REQUESTS_REQUESTER + " TEXT NOT NULL, "
+                        + MONITROING_REQUESTS_AGENTNAME + " TEXT NOT NULL, "
+                        + MONITROING_REQUESTS_REQTIME + " TEXT NOT NULL, "
+                        + MONITROING_REQUESTS_REQINFO + " TEXT NOT NULL, " //INTERVAL,DURATION,REPEAT,REPEATGAP
+                        + MONITROING_REQUESTS_APPLIST + " TEXT NOT NULL, "
+                        + MONITROING_REQUESTS_DONE + " TEXT, "
+                        + MONITROING_REQUESTS_CONSUMED + " TEXT )");
+
+                db.execSQL("CREATE TABLE " + TABLE_MONITROING_DATA + " (  "
+                        + MONITROING_DATA_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,  "
+                        + MONITROING_REQUESTS_ID + " INTEGER NOT NULL, "
+                        + MONITROING_DATA_DATAFILE + " TEXT )");
+
             }
             catch (Exception once)
             {

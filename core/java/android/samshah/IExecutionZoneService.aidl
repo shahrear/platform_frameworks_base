@@ -18,6 +18,8 @@ interface IExecutionZoneService {
         void setPolicy(String policyName, String zoneName);
         void editPolicy(String policyName, String action, String paramList);
         void setAllowAll(boolean b);
+        void startAgent (String agentName, String requestInfo, String applist, String requester);
+        String getMonitoringResult(String agentName, String requester);
         int checkZonePermission(String permission, int uid);
         String[] getAllZones();
         String[] getAllPolicies();
