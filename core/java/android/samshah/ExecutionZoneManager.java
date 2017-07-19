@@ -8,6 +8,7 @@ package android.samshah;
  * created by shah oct 5
  * recreated for thesis mar 28 2017
  */
+import android.content.Intent;
 import android.util.Log;
 import android.os.IBinder;
 import android.samshah.IExecutionZoneService;
@@ -55,17 +56,40 @@ public class ExecutionZoneManager {
 
     /**
      * Sets the value in Service
+     * @param intentType Type of Intent
+     * @param intent Intent
+     * @param callerUid Caller uid
+     * @param receivingUid Receiving uid
+     * @param resolvedType Resolved type
+     */
+    public void logIntentFromFirewall (int intentType, Intent intent, int callerUid, int receivingUid, String resolvedType) {
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Going to call logIntentFromFirewall from ExecutionZoneManager");
+            long shahStarttime = System.currentTimeMillis();
+            mExecutionZoneService.logIntentFromFirewall(intentType, intent, callerUid, receivingUid, resolvedType);
+            long shahStopTime = System.currentTimeMillis();
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH logIntentFromFirewall called successfully from ExecutionZoneManager, time elapsed: "+(shahStopTime - shahStarttime));
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call logIntentFromFirewall service from ExecutionZoneManager, Exception Message: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Sets the value in Service
      * @param agentName The name of the agent
      * @param requestInfo Request Info: interval,duration,repeat,repeatgap
-     * @param applist App list
+     * @param appuid Uid of App to monitor
      * @param requester Requester package name
      */
-    public void startAgent (String agentName, String requestInfo, String applist, String requester) {
+    public void startAgent (String agentName, String requestInfo, int appuid, String requester) {
         try{
             if(DEBUG_ENABLE)
                 Log.d(TAG, "Log SHAH Going to call startAgent service from ExecutionZoneManager");
             long shahStarttime = System.currentTimeMillis();
-            mExecutionZoneService.startAgent(agentName, requestInfo, applist, requester);
+            mExecutionZoneService.startAgent(agentName, requestInfo, appuid, requester);
             long shahStopTime = System.currentTimeMillis();
             if(DEBUG_ENABLE)
                 Log.d(TAG, "Log SHAH startAgent called successfully from ExecutionZoneManager, time elapsed: "+(shahStopTime - shahStarttime));
@@ -80,13 +104,13 @@ public class ExecutionZoneManager {
      * @param agentName The name of the agent
      * @param requester Requester
      */
-    public String getMonitoringResult(String agentName, String requester){
+    public String getMonitoringResult(String agentName, String requester, int appuid){
         String filePath = "";
         try{
             if(DEBUG_ENABLE)
                 Log.d(TAG, "Log SHAH Going to call getMonitoringResult from ExecutionZoneManager");
             long shahStarttime = System.currentTimeMillis();
-            filePath = mExecutionZoneService.getMonitoringResult(agentName,requester);
+            filePath = mExecutionZoneService.getMonitoringResult(agentName,requester,appuid);
             long shahStopTime = System.currentTimeMillis();
             if(DEBUG_ENABLE)
                 Log.d(TAG, "Log SHAH getMonitoringResult called successfully from ExecutionZoneManager, time elapsed: "+(shahStopTime - shahStarttime));

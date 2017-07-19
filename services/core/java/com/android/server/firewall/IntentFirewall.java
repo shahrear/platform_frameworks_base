@@ -48,6 +48,9 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 
+//shah 2017 jul 18
+import android.samshah.ExecutionZoneManager;
+
 public class IntentFirewall {
     static final String TAG = "IntentFirewall";
 
@@ -176,7 +179,9 @@ public class IntentFirewall {
         }
 
         //shah June 05, 2017
-        logIntentShah(intentType, intent, callerUid, receivingUid,resolvedType);
+        ExecutionZoneManager ezm = ExecutionZoneManager.getExecutionZoneManager();
+        ezm.logIntentFromFirewall(intentType, intent, callerUid, receivingUid,resolvedType);
+        //logIntentShah(intentType, intent, callerUid, receivingUid,resolvedType);
 
         if (log) {
             logIntent(intentType, intent, callerUid, resolvedType);
@@ -189,13 +194,15 @@ public class IntentFirewall {
                                   String resolvedType) {
 
         ComponentName cn = intent.getComponent();
-        String shortComponent = null;
+        String shortComponent = "null";
+
         if (cn != null) {
             shortComponent = cn.flattenToShortString();
         }
 
-        Slog.d("IFSHAHSAM", "shah in intent firewall, calleruid, receiving uid: " + callerUid + ", r uid: " + receivingUid + " " + intentType + " " + shortComponent + " " + intent.getAction() + " " +
-                resolvedType + " " + intent.getDataString() + " " + intent.getFlags());
+        Slog.d("IFSHAHSAM", "shah in intent firewall, calleruid: " + callerUid + ", receiving uid: " + receivingUid + " ,intent type: " + intentType + " ,component: "
+                + shortComponent + " ,intent action: " + intent.getAction() + " , resolved type: " +
+                resolvedType + " ,intent datastring: " + intent.getDataString() + " , intent flags: " + intent.getFlags());
 
     }
 

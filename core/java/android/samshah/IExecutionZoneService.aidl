@@ -9,6 +9,7 @@
 package android.samshah;
 
 import java.util.Map;
+import android.content.Intent;
 
 interface IExecutionZoneService {
         void createZone(String zoneName, String policyList);
@@ -18,8 +19,9 @@ interface IExecutionZoneService {
         void setPolicy(String policyName, String zoneName);
         void editPolicy(String policyName, String action, String paramList);
         void setAllowAll(boolean b);
-        void startAgent (String agentName, String requestInfo, String applist, String requester);
-        String getMonitoringResult(String agentName, String requester);
+        void startAgent (String agentName, String requestInfo, int appuid, String requester);
+        String getMonitoringResult(String agentName, String requester, int appuid);
+        void logIntentFromFirewall (int intentType, Intent intent, int callerUid, int receivingUid, String resolvedType);
         int checkZonePermission(String permission, int uid);
         String[] getAllZones();
         String[] getAllPolicies();

@@ -1,6 +1,7 @@
 package com.android.server;
 
 import android.content.ContentValues;
+import android.content.Intent;
 import android.content.pm.ApplicationInfo;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
@@ -9,6 +10,7 @@ import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Parcelable;
 import android.samshah.IExecutionZoneService;
 import android.os.Looper;
 import android.os.Bundle;
@@ -19,6 +21,7 @@ import android.util.Log;
 import java.io.File;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -68,7 +71,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     private static final String MONITROING_REQUESTS_AGENTNAME = "agentname";
     private static final String MONITROING_REQUESTS_REQTIME = "reqtime";
     private static final String MONITROING_REQUESTS_REQINFO = "reqinfo";
-    private static final String MONITROING_REQUESTS_APPLIST = "applist";
+    private static final String MONITROING_REQUESTS_APPUID = "appuid";
     private static final String MONITROING_REQUESTS_DONE = "done";
     private static final String MONITROING_REQUESTS_CONSUMED = "consumed";
 
@@ -123,6 +126,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
         //SHAH monitoring jul 17 2017
         private static final int START_AGENT = 300;
+        private static final int LOG_INTENT = 401;
+        private static final int LOG_PERMISSIONS = 402;
 
 
 
@@ -134,38 +139,44 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     if(setZoneToApp(msg.getData().getString("packagename"),msg.getData().getString("zonename")))
                         Log.i(TAG, "Log SHAH zone info inserted successfully.");
                 }
-                if (msg.what == CREATE_ZONE) {
+                else if (msg.what == CREATE_ZONE) {
                     Log.i(TAG,"create zone message received: zonename: " + msg.getData().getString("zonename") + " policylist " + msg.getData().getString("policylist"));
                     if(createZoneWithPolicies(msg.getData().getString("zonename"),msg.getData().getString("policylist")))
                         Log.i(TAG, "Log SHAH zone created successfully.");
                 }
-                if (msg.what == EDIT_ZONE) {
+                else if (msg.what == EDIT_ZONE) {
                     Log.i(TAG,"edit zone message received: zone: " + msg.getData().getString("zonename") + " action " + msg.getData().getString("action") + " param: "+msg.getData().getString("paramlist"));
                     if(editZoneOrPolicies(msg.getData().getString("zonename"), msg.getData().getString("action"),msg.getData().getString("paramlist")))
                         Log.i(TAG, "Log SHAH zone edited successfully.");
 
                 }
-                if (msg.what == CREATE_POLICY) {
+                else if (msg.what == CREATE_POLICY) {
                     Log.i(TAG,"create policy message received: policyname " + msg.getData().getString("policyname") + " rule list " + msg.getData().getString("rulelist"));
                     if(createPolicyInDB(msg.getData().getString("policyname"), msg.getData().getString("rulelist")))
                         Log.i(TAG, "Log SHAH policy created successfully.");
 
                 }
-                if (msg.what == EDIT_POLICY) {
+                else if (msg.what == EDIT_POLICY) {
                     Log.i(TAG,"edit policy message received: policy: " + msg.getData().getString("policyname") + " action " + msg.getData().getString("action") + " param: "+msg.getData().getString("paramlist"));
                     if(editPoliciesInDB(msg.getData().getString("policyname"), msg.getData().getString("action"), msg.getData().getString("paramlist")))
                         Log.i(TAG, "Log SHAH policy edited successfully.");
 
                 }
-                if (msg.what == SET_POLICY) {
+                else if (msg.what == SET_POLICY) {
                     Log.i(TAG,"set policy message received: policyname: " + msg.getData().getString("policyname") + " zone " + msg.getData().getString("zonename"));
                     if(setPolicyToZone(msg.getData().getString("policyname"), msg.getData().getString("zonename")))
                         Log.i(TAG, "Log SHAH set policy to zone successfully.");
                 }
-                if (msg.what == START_AGENT) {
+                else if (msg.what == START_AGENT) {
                     Log.i(TAG,"start agent message received: agentname: " + msg.getData().getString("agentname") + " from " + msg.getData().getString("requester"));
-                    if(startAgentForMonitoring(msg.getData().getString("agentname"), msg.getData().getString("requestinfo"), msg.getData().getString("applist"), msg.getData().getString("requester")))
+                    if(startAgentForMonitoring(msg.getData().getString("agentname"), msg.getData().getString("requestinfo"), msg.getData().getInt("appuid"), msg.getData().getString("requester")))
                         Log.i(TAG, "Log SHAH started agent "+ msg.getData().getString("agentname") + " successfully for " + msg.getData().getString("requester"));
+                }
+                else if (msg.what == LOG_INTENT) {
+
+                }
+                else if (msg.what == LOG_PERMISSIONS) {
+
                 }
             } catch (Exception e) {
                 // Log, don't crash!
@@ -179,7 +190,76 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         ALLOWALL_ENABLE = b;
     }
 
-    public String getMonitoringResult(String agentName, String requester)
+    public void logIntentFromFirewall (int intentType, Intent intent, int callerUid, int receivingUid, String resolvedType) {
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH in logIntentFromFirewall from ExecutionZoneService");
+
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call logIntentFromFirewall service, Exception Message: " + e.getMessage());
+        }
+    }
+
+    public static String intentToString(Intent intent) {
+        if (intent == null) {
+            return null;
+        }
+
+        return intent.toString() + " " + bundleToString(intent.getExtras());
+    }
+
+    public static String bundleToString(Bundle bundle) {
+        StringBuilder out = new StringBuilder("Bundle[");
+
+        if (bundle == null) {
+            out.append("null");
+        } else {
+            boolean first = true;
+            for (String key : bundle.keySet()) {
+                if (!first) {
+                    out.append(", ");
+                }
+
+                out.append(key).append('=');
+
+                Object value = bundle.get(key);
+
+                if (value instanceof int[]) {
+                    out.append(Arrays.toString((int[]) value));
+                } else if (value instanceof byte[]) {
+                    out.append(Arrays.toString((byte[]) value));
+                } else if (value instanceof boolean[]) {
+                    out.append(Arrays.toString((boolean[]) value));
+                } else if (value instanceof short[]) {
+                    out.append(Arrays.toString((short[]) value));
+                } else if (value instanceof long[]) {
+                    out.append(Arrays.toString((long[]) value));
+                } else if (value instanceof float[]) {
+                    out.append(Arrays.toString((float[]) value));
+                } else if (value instanceof double[]) {
+                    out.append(Arrays.toString((double[]) value));
+                } else if (value instanceof String[]) {
+                    out.append(Arrays.toString((String[]) value));
+                } else if (value instanceof CharSequence[]) {
+                    out.append(Arrays.toString((CharSequence[]) value));
+                } else if (value instanceof Parcelable[]) {
+                    out.append(Arrays.toString((Parcelable[]) value));
+                } else if (value instanceof Bundle) {
+                    out.append(bundleToString((Bundle) value));
+                } else {
+                    out.append(value);
+                }
+
+                first = false;
+            }
+        }
+
+        out.append("]");
+        return out.toString();
+    }
+
+    public String getMonitoringResult(String agentName, String requester, int appuid)
     {
         final SQLiteDatabase db = openHelper.getReadableDatabase();
         String logFile = null;
@@ -188,21 +268,23 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             Log.d(TAG,"SHAH Debug Log in getMonitoringResult of requester: "+ requester + " agent: " + agentName);
 
         try {
-            zonename = DatabaseUtils.stringForQuery(db,"SELECT Z." + ZONES_NAME + " FROM " + TABLE_ZONES
-                            + " Z INNER JOIN "+TABLE_APPZONES+" AZ ON Z." + ZONES_ID + "=AZ." + APPZONES_ZONE_ID + " WHERE AZ." + APPZONES_APP_NAME + "=?",
-                    new String[]{packagename});
+            logFile = DatabaseUtils.stringForQuery(db,"SELECT MD." + MONITROING_DATA_DATAFILE + " FROM " + TABLE_MONITROING_DATA
+                            + " MD INNER JOIN "+TABLE_MONITROING_REQUESTS + " MR ON MD." + MONITROING_DATA_REQUEST_ID + "=MR." + MONITROING_REQUESTS_ID
+                            + " WHERE MR.MONITROING_REQUESTS_DONE='Y' and MR.MONITROING_REQUESTS_CONSUMED='N' and MR." + MONITROING_REQUESTS_AGENTNAME + "=? and MR."
+                            + MONITROING_REQUESTS_REQUESTER + "=?",
+                    new String[]{agentName,requester});
         }
         catch (Exception e) {
             // Log, don't crash!
             Log.e(TAG, "Log SHAH Exception in getMonitoringResult, message: "+e.getMessage());
         }
 
-        return zonename;
+        return logFile;
 
     }
 
-
-    public void startAgent(String agentName, String requestInfo, String applist, String requester) {
+    //appuid is list of uid separated by commas, currently supports only single
+    public void startAgent(String agentName, String requestInfo, int appuid, String requester) {
         Log.i(TAG, "Log SHAH startAgent for " + requester);
 
         // Creating Bundle object
@@ -211,8 +293,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         // Storing data into bundle
         b.putString("agentname", agentName);
         b.putString("requestinfo", requestInfo);
-        b.putString("applist", applist);
+        b.putInt("appuid", appuid);
         b.putString("requester", requester);
+
 
         Message msg = Message.obtain();
         msg.what = ExecutionZoneWorkerHandler.START_AGENT;
@@ -220,12 +303,12 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         mHandler.sendMessage(msg);
     }
 
-    private boolean startAgentForMonitoring(String agentName, String requestInfo, String applist, String requester) {
+    private boolean startAgentForMonitoring(String agentName, String requestInfo, int appuid, String requester) {
         Log.i(TAG, "Log SHAH startAgentForMonitoring for " + requester);
 
         synchronized (zonedbLock) {
             final SQLiteDatabase db = openHelper.getWritableDatabase();
-            db.beginTransaction();
+
             try {
                 ContentValues values = new ContentValues();
 
@@ -236,10 +319,12 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
                 {
                     values.put(MONITROING_REQUESTS_REQUESTER, requester);
-                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_APPUID, appuid);
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+                    values.put(MONITROING_REQUESTS_DONE, "N");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -254,10 +339,13 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 else if(agentName.toUpperCase() == "INTENTS")
                 {
                     values.put(MONITROING_REQUESTS_REQUESTER, requester);
-                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_APPUID, appuid);
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+                    values.put(MONITROING_REQUESTS_DONE, "N");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
+
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -272,10 +360,13 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
                 {
                     values.put(MONITROING_REQUESTS_REQUESTER, requester);
-                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_APPUID, appuid);
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+                    values.put(MONITROING_REQUESTS_DONE, "N");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
+
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -290,10 +381,13 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
                 {
                     values.put(MONITROING_REQUESTS_REQUESTER, requester);
-                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_APPUID, appuid);
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+                    values.put(MONITROING_REQUESTS_DONE, "N");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
+
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -308,10 +402,13 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 else if(agentName.toUpperCase() == "RUNTIMEPERMISSIONS")
                 {
                     values.put(MONITROING_REQUESTS_REQUESTER, requester);
-                    values.put(MONITROING_REQUESTS_APPLIST, applist);
+                    values.put(MONITROING_REQUESTS_APPUID, appuid);
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
+                    values.put(MONITROING_REQUESTS_DONE, "N");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
+
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -323,9 +420,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         return false;
                     }
                 }
-                db.setTransactionSuccessful();
             } finally {
-                db.endTransaction();
                 db.close();
             }
 
@@ -357,7 +452,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     {
         synchronized (zonedbLock) {
             final SQLiteDatabase db = openHelper.getWritableDatabase();
-            db.beginTransaction();
+            //db.beginTransaction();
             try {
                 int zone_id = getZoneID(zoneName);
 
@@ -394,9 +489,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         return false;
                     }
                 }
-                db.setTransactionSuccessful();
+                //db.setTransactionSuccessful();
             } finally {
-                db.endTransaction();
+                //db.endTransaction();
                 db.close();
             }
 
@@ -599,7 +694,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     {
         synchronized (zonedbLock) {
             final SQLiteDatabase db = openHelper.getWritableDatabase();
-            db.beginTransaction();
+
             try {
                 ContentValues values = new ContentValues();
 
@@ -615,9 +710,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     return false;
                 }
 
-                db.setTransactionSuccessful();
+
             } finally {
-                db.endTransaction();
+
                 db.close();
             }
 
@@ -645,7 +740,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     {
         synchronized (zonedbLock) {
             final SQLiteDatabase db = openHelper.getWritableDatabase();
-            db.beginTransaction();
+
             try {
                 int zone_id = getZoneID(zoneName);
                 int policy_id = getPolicyID(policyName);
@@ -676,9 +771,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     return false;
                 }
 
-                db.setTransactionSuccessful();
+
             } finally {
-                db.endTransaction();
+
                 db.close();
             }
 
@@ -1536,7 +1631,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         + MONITROING_REQUESTS_AGENTNAME + " TEXT NOT NULL, "
                         + MONITROING_REQUESTS_REQTIME + " TEXT NOT NULL, "
                         + MONITROING_REQUESTS_REQINFO + " TEXT NOT NULL, " //INTERVAL,DURATION,REPEAT,REPEATGAP
-                        + MONITROING_REQUESTS_APPLIST + " TEXT NOT NULL, "
+                        + MONITROING_REQUESTS_APPUID + " TEXT NOT NULL, "
                         + MONITROING_REQUESTS_DONE + " TEXT, "
                         + MONITROING_REQUESTS_CONSUMED + " TEXT )");
 
