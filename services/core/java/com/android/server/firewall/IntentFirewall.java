@@ -179,9 +179,13 @@ public class IntentFirewall {
         }
 
         //shah June 05, 2017
-        ExecutionZoneManager ezm = ExecutionZoneManager.getExecutionZoneManager();
-        ezm.logIntentFromFirewall(intentType, intent, callerUid, receivingUid,resolvedType);
-        //logIntentShah(intentType, intent, callerUid, receivingUid,resolvedType);
+        if(callerUid > 10000 && receivingUid > 10000) {
+            ExecutionZoneManager ezm = ExecutionZoneManager.getExecutionZoneManager();
+
+            ezm.logIntentFromFirewall(intentType, intent, callerUid, receivingUid, resolvedType);
+
+            //logIntentShah(intentType, intent, callerUid, receivingUid,resolvedType);
+        }
 
         if (log) {
             logIntent(intentType, intent, callerUid, resolvedType);

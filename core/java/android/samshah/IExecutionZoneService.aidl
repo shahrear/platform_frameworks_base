@@ -21,7 +21,7 @@ interface IExecutionZoneService {
         void setAllowAll(boolean b);
         void startAgent (String agentName, String requestInfo, int appuid, String requester);
         String getMonitoringResult(String agentName, String requester, int appuid);
-        void logIntentFromFirewall (int intentType, Intent intent, int callerUid, int receivingUid, String resolvedType);
+        void logIntentFromFirewall (int intentType, in Intent intent, int callerUid, int receivingUid, String resolvedType);
         int checkZonePermission(String permission, int uid);
         String[] getAllZones();
         String[] getAllPolicies();

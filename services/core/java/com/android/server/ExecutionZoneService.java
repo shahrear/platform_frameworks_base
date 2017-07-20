@@ -18,7 +18,10 @@ import android.content.Context;
 import android.os.Message;
 import android.text.format.Time;
 import android.util.Log;
+
+import java.io.BufferedWriter;
 import java.io.File;
+import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -28,6 +31,11 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
+
+import static java.util.concurrent.TimeUnit.SECONDS;
 
 
 /**
@@ -72,17 +80,22 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     private static final String MONITROING_REQUESTS_REQTIME = "reqtime";
     private static final String MONITROING_REQUESTS_REQINFO = "reqinfo";
     private static final String MONITROING_REQUESTS_APPUID = "appuid";
-    private static final String MONITROING_REQUESTS_DONE = "done";
+    private static final String MONITROING_REQUESTS_STATUS = "status";
     private static final String MONITROING_REQUESTS_CONSUMED = "consumed";
-
-    private static final String TABLE_MONITROING_DATA = "mondata";
-    private static final String MONITROING_DATA_ID = "_id";
-    private static final String MONITROING_DATA_REQUEST_ID = "reqid";
-    private static final String MONITROING_DATA_DATAFILE = "datafile";
+    private static final String MONITROING_REQUESTS_DATAFILE = "datafile";
 
 
+    private static boolean MONITROING_INTENTS_ON = false;
 
+    private static HashMap<String,BufferedWriter> dataFileHandlers;
+
+    private static final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
     //shah monitoring jul 17 2017
+
+    //shah jul 19 2017
+    private static boolean LOG_BULK_MONITORING = true;
+    private static final String TAG_LOG_INTENT_BULK = "SHAHINTENTBULKLOG";
+    private static final String TAG_LOG_PERMISSIONS_BULK = "SHAHPERMISSIONSBULKLOG";
 
     private static boolean ALLOWALL_ENABLE = false;
 
@@ -102,6 +115,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         mContext = context;
         mWorker = new ExecutionZoneWorkerThread("ExecutionZoneServiceWorker");
         mWorker.start();
+
+        //
+        dataFileHandlers = new HashMap<String, BufferedWriter>();
         Log.i(TAG, "Log SHAH Spawned worker thread");
     }
 
@@ -128,8 +144,6 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         private static final int START_AGENT = 300;
         private static final int LOG_INTENT = 401;
         private static final int LOG_PERMISSIONS = 402;
-
-
 
         @Override
         public void handleMessage(Message msg) {
@@ -173,6 +187,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         Log.i(TAG, "Log SHAH started agent "+ msg.getData().getString("agentname") + " successfully for " + msg.getData().getString("requester"));
                 }
                 else if (msg.what == LOG_INTENT) {
+                    logIntent(msg.getData().getInt("calleruid"), msg.getData().getInt("receivinguid"), msg.getData().getString("intentlogstring"));
 
                 }
                 else if (msg.what == LOG_PERMISSIONS) {
@@ -184,20 +199,192 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             }
         }
     }
+    public void scheduleAgentStop(final int reqId, String agentName, int duration) {
+        class OneShotTask implements Runnable {
+            String agentName;
+            int requestId, duration;
+            OneShotTask(int reqId, String aName, int dur)
+            {
+                requestId = reqId;
+                duration = dur;
+                agentName = aName;
+            }
+            public void run() {
+                //set status to done
+                synchronized (zonedbLock) {
+
+                    ContentValues values = new ContentValues();
+
+                    values.put(MONITROING_REQUESTS_STATUS, "DONE");
+
+                    long appzoneId = db.update(TABLE_MONITROING_REQUESTS, values, MONITROING_REQUESTS_ID + "=" + reqId, null);
+
+                    if (appzoneId < 0) {
+                        Log.w(TAG, "Log SHAH update db in sceduleAgentStop: reqid: " + reqId + ", skipping the DB update failed");
+                        db.close();
+                        return false;
+                    }
+                }
+
+                if(agentName == "INTENTS")
+                {
+                    //if no other intent agents running set intent_monitoring_on=false
+                }
+            }
+        }
+        OneShotTask stopper = new OneShotTask(reqId,agentName,duration);
+        final ScheduledFuture<?> stopperHandle =
+                scheduler.scheduleAtFixedRate(stopper, duration, duration, SECONDS);
+        scheduler.schedule(new Runnable() {
+            public void run() { stopperHandle.cancel(true); }
+        }, duration+1, SECONDS);
+    }
+
+    private boolean startPendingAgents ()
+    {
+        final SQLiteDatabase db = openHelper.getWritableDatabase();
+
+        if(DEBUG_ENABLE)
+            Log.d(TAG,"SHAH Debug Log in startPendingAgents");
+
+        try {
+            Cursor c = db.rawQuery("SELECT * FROM " + TABLE_MONITROING_REQUESTS
+                    + " WHERE " + MONITROING_REQUESTS_STATUS + "='PENDING' and " + MONITROING_REQUESTS_CONSUMED + "='NO'", null);
+
+            if(c.moveToFirst()){
+                do{
+                    //assing values
+                    int reqId = c.getInt(c.getColumnIndex(MONITROING_REQUESTS_ID));
+                    int appUID = c.getInt(c.getColumnIndex(MONITROING_REQUESTS_APPUID));
+                    String agentName = c.getString(c.getColumnIndex(MONITROING_REQUESTS_AGENTNAME));
+                    String reqInfo = c.getString(c.getColumnIndex(MONITROING_REQUESTS_REQINFO));
+                    String requester = c.getString(c.getColumnIndex(MONITROING_REQUESTS_REQUESTER));
+
+                    String dataFileName = "/sdcard/sammonitoring/" + agentName + "_" + requester.substring(requester.lastIndexOf('.')+1)
+                            + "_" + appUID + ".log";
+
+                    File file = new File(dataFileName);
+                    file.getParentFile().mkdirs();
+                    FileWriter writer = new FileWriter(file,true);
+
+                    BufferedWriter bw = new BufferedWriter(writer);
+                    dataFileHandlers.put(dataFileName,bw);
+
+                    if(agentName == "INTENTS")
+                    {
+                        MONITROING_INTENTS_ON = true;
+                        //update db status=running, datafile=datafilename
+
+                        synchronized (zonedbLock) {
+
+                            ContentValues values = new ContentValues();
+
+                            values.put(MONITROING_REQUESTS_STATUS, "RUNNING");
+                            values.put(MONITROING_REQUESTS_DATAFILE, dataFileName);
+
+                            long appzoneId = db.update(TABLE_MONITROING_REQUESTS, values, MONITROING_REQUESTS_ID + "=" + appUID, null);
+
+                            if (appzoneId < 0) {
+                                Log.w(TAG, "Log SHAH update db in startPendingAgents: reqid: " + reqId + ", skipping the DB update failed");
+                                db.close();
+                                return false;
+                            }
+                        }
+
+                    }
+
+                }while(c.moveToNext());
+            }
+            c.close();
+
+            db.close();
+        }
+        catch (Exception e) {
+            // Log, don't crash!
+            Log.e(TAG, "Log SHAH Exception in startPendingAgents, message: "+e.getMessage());
+        }
+
+        return true;
+    }
+
+
 
     public void setAllowAll (boolean b)
     {
         ALLOWALL_ENABLE = b;
     }
 
+    public void logIntent (int callerUid, int receivingUid, String intentContent)
+    {
+        final SQLiteDatabase db = openHelper.getReadableDatabase();
+
+        if(DEBUG_ENABLE)
+            Log.d(TAG,"SHAH Debug Log in logIntent");
+
+        try {
+            Cursor c = db.rawQuery("SELECT " + MONITROING_REQUESTS_DATAFILE + " FROM " + TABLE_MONITROING_REQUESTS
+                    + " WHERE " + MONITROING_REQUESTS_STATUS + "='RUNNING' and " + MONITROING_REQUESTS_CONSUMED + "='NO' and "
+                    + MONITROING_REQUESTS_APPUID + "="+callerUid+" OR "
+                    + MONITROING_REQUESTS_APPUID + "="+receivingUid, null);
+
+            if(c.moveToFirst()){
+                do{
+                    //assing values
+                    BufferedWriter bw = dataFileHandlers.get(c.getString(0));
+
+                    if(bw!=null)
+                    {
+                        bw.write(intentContent);
+                        bw.newLine();
+                        bw.flush();
+                    }
+
+                }while(c.moveToNext());
+            }
+            c.close();
+        }
+        catch (Exception e) {
+            // Log, don't crash!
+            Log.e(TAG, "Log SHAH Exception in getAllPolicies, message: "+e.getMessage());
+        }
+    }
+
     public void logIntentFromFirewall (int intentType, Intent intent, int callerUid, int receivingUid, String resolvedType) {
         try{
             if(DEBUG_ENABLE)
                 Log.d(TAG, "Log SHAH in logIntentFromFirewall from ExecutionZoneService");
+            // Creating Bundle object
+
+            if(MONITROING_INTENTS_ON == true) {
+                Bundle b = new Bundle();
+
+                // Storing data into bundle
+                b.putInt("calleruid", callerUid);
+                b.putInt("receivinguid", receivingUid);
+                String intentLogString = "Intent Type: " + intentType + ", Caller UID: " + callerUid + ", Receiving UID: " + receivingUid +
+                        ", Resolved Type: " + resolvedType + ", Actual Intent Content: " + intentToString(intent);
+                b.putString("intentlogstring", intentLogString);
+
+
+                Message msg = Message.obtain();
+                msg.what = ExecutionZoneWorkerHandler.LOG_INTENT;
+                msg.setData(b);
+                mHandler.sendMessage(msg);
+            }
+
+            if(LOG_BULK_MONITORING == true)
+            {
+                String intentLogString = "Intent Type: " + intentType + ", Caller UID: " + callerUid + ", Receiving UID: "
+                        + receivingUid + ", Resolved Type: " + resolvedType + ", Actual Intent Content: " + intentToString(intent);
+
+                Log.v(TAG_LOG_INTENT_BULK,intentLogString);
+
+            }
+
 
         } catch (Exception e) {
             if(DEBUG_ENABLE)
-                Log.e(TAG, "Log SHAH FAILED to call logIntentFromFirewall service, Exception Message: " + e.getMessage());
+                Log.e(TAG, "Log SHAH FAILED inside logIntentFromFirewall service, Exception Message: " + e.getMessage());
         }
     }
 
@@ -268,11 +455,12 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             Log.d(TAG,"SHAH Debug Log in getMonitoringResult of requester: "+ requester + " agent: " + agentName);
 
         try {
-            logFile = DatabaseUtils.stringForQuery(db,"SELECT MD." + MONITROING_DATA_DATAFILE + " FROM " + TABLE_MONITROING_DATA
-                            + " MD INNER JOIN "+TABLE_MONITROING_REQUESTS + " MR ON MD." + MONITROING_DATA_REQUEST_ID + "=MR." + MONITROING_REQUESTS_ID
-                            + " WHERE MR.MONITROING_REQUESTS_DONE='Y' and MR.MONITROING_REQUESTS_CONSUMED='N' and MR." + MONITROING_REQUESTS_AGENTNAME + "=? and MR."
+            logFile = DatabaseUtils.stringForQuery(db,"SELECT " + MONITROING_REQUESTS_DATAFILE + " FROM " + TABLE_MONITROING_REQUESTS
+                            + " WHERE " + MONITROING_REQUESTS_STATUS + "='DONE' and " + MONITROING_REQUESTS_CONSUMED + "='NO' and "
+                            + MONITROING_REQUESTS_AGENTNAME + "=? and "
+                            + MONITROING_REQUESTS_APPUID + "=? and "
                             + MONITROING_REQUESTS_REQUESTER + "=?",
-                    new String[]{agentName,requester});
+                    new String[]{agentName,Integer.toString(appuid),requester});
         }
         catch (Exception e) {
             // Log, don't crash!
@@ -323,8 +511,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
-                    values.put(MONITROING_REQUESTS_DONE, "N");
-                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
+                    values.put(MONITROING_REQUESTS_STATUS, "PENDING");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "NO");
 
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
@@ -343,10 +531,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
-                    values.put(MONITROING_REQUESTS_DONE, "N");
-                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
-
-
+                    values.put(MONITROING_REQUESTS_STATUS, "PENDING");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "NO");
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
 
@@ -364,10 +550,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
-                    values.put(MONITROING_REQUESTS_DONE, "N");
-                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
-
-
+                    values.put(MONITROING_REQUESTS_STATUS, "PENDING");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "NO");
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
 
@@ -385,10 +569,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
-                    values.put(MONITROING_REQUESTS_DONE, "N");
-                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
-
-
+                    values.put(MONITROING_REQUESTS_STATUS, "PENDING");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "NO");
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
 
@@ -406,10 +588,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     values.put(MONITROING_REQUESTS_AGENTNAME, agentName);
                     values.put(MONITROING_REQUESTS_REQTIME, t.toString());
                     values.put(MONITROING_REQUESTS_REQINFO, requestInfo);
-                    values.put(MONITROING_REQUESTS_DONE, "N");
-                    values.put(MONITROING_REQUESTS_CONSUMED, "N");
-
-
+                    values.put(MONITROING_REQUESTS_STATUS, "PENDING");
+                    values.put(MONITROING_REQUESTS_CONSUMED, "NO");
 
                     long reqId = db.insert(TABLE_MONITROING_REQUESTS, null, values);
 
@@ -426,10 +606,10 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
         }
 
+        startPendingAgents();
+
         return true;
     }
-
-
 
     public void setZone(String packageName, String zoneName) {
         Log.i(TAG, "Log SHAH setZone " + packageName + "to zone " + zoneName);
@@ -1210,6 +1390,11 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
     private int checkZonePermission (String permission, String packageName)
     {
+        if(LOG_BULK_MONITORING == true)
+        {
+            String logMessage = permission + ", " + packageName;
+            Log.v(TAG_LOG_PERMISSIONS_BULK,logMessage);
+        }
         if(ALLOWALL_ENABLE == false) {
             try {
                 if (DEBUG_ENABLE)
@@ -1632,13 +1817,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                         + MONITROING_REQUESTS_REQTIME + " TEXT NOT NULL, "
                         + MONITROING_REQUESTS_REQINFO + " TEXT NOT NULL, " //INTERVAL,DURATION,REPEAT,REPEATGAP
                         + MONITROING_REQUESTS_APPUID + " TEXT NOT NULL, "
-                        + MONITROING_REQUESTS_DONE + " TEXT, "
+                        + MONITROING_REQUESTS_DATAFILE + " TEXT, "
+                        + MONITROING_REQUESTS_STATUS + " TEXT, "
                         + MONITROING_REQUESTS_CONSUMED + " TEXT )");
-
-                db.execSQL("CREATE TABLE " + TABLE_MONITROING_DATA + " (  "
-                        + MONITROING_DATA_ID + " INTEGER PRIMARY KEY AUTOINCREMENT,  "
-                        + MONITROING_REQUESTS_ID + " INTEGER NOT NULL, "
-                        + MONITROING_DATA_DATAFILE + " TEXT )");
 
             }
             catch (Exception once)
