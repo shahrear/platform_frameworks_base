@@ -97,7 +97,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     private static final String TAG_LOG_INTENT_BULK = "SHAHINTENTBULKLOG";
     private static final String TAG_LOG_PERMISSIONS_BULK = "SHAHPERMISSIONSBULKLOG";
 
-    private static boolean ALLOWALL_ENABLE = false;
+    private static boolean ALLOWALL_ENABLE = true;
 
     private final Object zonedbLock = new Object();
     private final DatabaseHelper openHelper;
@@ -212,7 +212,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             public void run() {
                 //set status to done
                 synchronized (zonedbLock) {
-
+                    final SQLiteDatabase db = openHelper.getWritableDatabase();
                     ContentValues values = new ContentValues();
 
                     values.put(MONITROING_REQUESTS_STATUS, "DONE");
@@ -221,9 +221,8 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
                     if (appzoneId < 0) {
                         Log.w(TAG, "Log SHAH update db in sceduleAgentStop: reqid: " + reqId + ", skipping the DB update failed");
-                        db.close();
-                        return false;
                     }
+                    db.close();
                 }
 
                 if(agentName == "INTENTS")
@@ -1357,6 +1356,11 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     }
 
     public int checkZonePermission(String permission, int uid) {
+        if(LOG_BULK_MONITORING == true)
+        {
+            String logMessage = permission + ", " + uid;
+            Log.v(TAG_LOG_PERMISSIONS_BULK,logMessage);
+        }
 
         if(ALLOWALL_ENABLE == false) {
             if (DEBUG_ENABLE)
@@ -1390,11 +1394,6 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
     private int checkZonePermission (String permission, String packageName)
     {
-        if(LOG_BULK_MONITORING == true)
-        {
-            String logMessage = permission + ", " + packageName;
-            Log.v(TAG_LOG_PERMISSIONS_BULK,logMessage);
-        }
         if(ALLOWALL_ENABLE == false) {
             try {
                 if (DEBUG_ENABLE)

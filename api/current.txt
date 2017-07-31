@@ -28220,15 +28220,18 @@ package android.samshah {
     method public java.lang.String[] getAllApps();
     method public java.lang.String[] getAppsOfZoneByPackageName(java.lang.String);
     method public static synchronized android.samshah.ExecutionZoneManager getExecutionZoneManager();
+    method public java.lang.String getMonitoringResult(java.lang.String, java.lang.String, int);
     method public java.lang.String[] getPolicies();
     method public java.lang.String[] getPoliciesOfZone(java.lang.String);
     method public java.util.Map<java.lang.String, java.lang.String> getPoliciesOfZoneWithRules(java.lang.String);
     method public java.lang.String getRulesOfPolicy(java.lang.String);
     method public java.lang.String getZoneOfApp(java.lang.String);
     method public java.lang.String[] getZones();
+    method public void logIntentFromFirewall(int, android.content.Intent, int, int, java.lang.String);
     method public void setAllowAll(boolean);
     method public void setPolicy(java.lang.String, java.lang.String);
     method public void setZone(java.lang.String, java.lang.String);
+    method public void startAgent(java.lang.String, java.lang.String, int, java.lang.String);
   }
 
   public abstract interface IExecutionZoneService implements android.os.IInterface {
@@ -28241,13 +28244,16 @@ package android.samshah {
     method public abstract java.lang.String[] getAllPolicies() throws android.os.RemoteException;
     method public abstract java.lang.String[] getAllZones() throws android.os.RemoteException;
     method public abstract java.lang.String[] getAppsOfZoneByPackageName(java.lang.String) throws android.os.RemoteException;
+    method public abstract java.lang.String getMonitoringResult(java.lang.String, java.lang.String, int) throws android.os.RemoteException;
     method public abstract java.lang.String[] getPoliciesOfZone(java.lang.String) throws android.os.RemoteException;
     method public abstract java.util.Map getPoliciesOfZoneWithRules(java.lang.String) throws android.os.RemoteException;
     method public abstract java.lang.String getRulesOfPolicy(java.lang.String) throws android.os.RemoteException;
     method public abstract java.lang.String getZoneOfApp(java.lang.String) throws android.os.RemoteException;
+    method public abstract void logIntentFromFirewall(int, android.content.Intent, int, int, java.lang.String) throws android.os.RemoteException;
     method public abstract void setAllowAll(boolean) throws android.os.RemoteException;
     method public abstract void setPolicy(java.lang.String, java.lang.String) throws android.os.RemoteException;
     method public abstract void setZone(java.lang.String, java.lang.String) throws android.os.RemoteException;
+    method public abstract void startAgent(java.lang.String, java.lang.String, int, java.lang.String) throws android.os.RemoteException;
   }
 
   public static abstract class IExecutionZoneService.Stub extends android.os.Binder implements android.samshah.IExecutionZoneService {
