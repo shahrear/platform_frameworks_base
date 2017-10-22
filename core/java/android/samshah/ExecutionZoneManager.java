@@ -56,6 +56,30 @@ public class ExecutionZoneManager {
 
     /**
      * Sets the value in Service
+     * @param packageName The name of the package
+     * @param userId userid of package
+     */
+    public int[] getPackageGids(String packageName, int userId)
+    {
+        int [] gids = null;
+        try{
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Going to call getPackageGids service from ExecutionZoneManager");
+            long shahStarttime = System.currentTimeMillis();
+            gids = mExecutionZoneService.getPackageGids(packageName,userId);
+            long shahStopTime = System.currentTimeMillis();
+            if(DEBUG_ENABLE)
+                Log.d(TAG, "Log SHAH Service getPackageGids called successfully from ExecutionZoneManager, time elapsed: " +(shahStopTime - shahStarttime));
+        } catch (Exception e) {
+            if(DEBUG_ENABLE)
+                Log.e(TAG, "Log SHAH FAILED to call getPackageGids service from ExecutionZoneManager, Exception Message: " + e.getMessage());
+        }
+
+        return gids;
+    }
+
+    /**
+     * Sets the value in Service
      * @param intentType Type of Intent
      * @param intent Intent
      * @param callerUid Caller uid

@@ -292,6 +292,9 @@ public final class ActivityManagerService extends ActivityManagerNative
     private static final String TAG_VISIBILITY = TAG + POSTFIX_VISIBILITY;
     private static final String TAG_VISIBLE_BEHIND = TAG + POSTFIX_VISIBLE_BEHIND;
 
+    //shah oct 21 2017
+    private static final boolean DEBUG_ENABLE_SHAH = true;
+
     /** Control over CPU and battery monitoring */
     // write battery stats every 30 minutes.
     static final long BATTERY_STATS_TIME = 30 * 60 * 1000;
@@ -3281,8 +3284,11 @@ public final class ActivityManagerService extends ActivityManagerNative
             if (!app.isolated) {
                 int[] permGids = null;
                 try {
-                    checkTime(startTime, "startProcess: getting gids from package manager");
-                    final IPackageManager pm = AppGlobals.getPackageManager();
+                    //shah oct 21 2017
+                    if(DEBUG_ENABLE_SHAH) Log.d("GIDCHANGESHAH", "Get GIDs from execution zone manager");
+                    checkTime(startTime, "startProcess: getting gids from execution zone manager");
+                    //final IPackageManager pm = AppGlobals.getPackageManager();
+                    final Exec
                     permGids = pm.getPackageGids(app.info.packageName, app.userId);
                     MountServiceInternal mountServiceInternal = LocalServices.getService(
                             MountServiceInternal.class);

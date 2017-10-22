@@ -1,8 +1,10 @@
 package com.android.server;
 
+import android.app.AppGlobals;
 import android.content.ContentValues;
 import android.content.Intent;
 import android.content.pm.ApplicationInfo;
+import android.content.pm.IPackageManager;
 import android.content.pm.PackageManager;
 import android.database.Cursor;
 import android.database.DatabaseUtils;
@@ -11,6 +13,7 @@ import android.database.sqlite.SQLiteOpenHelper;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Parcelable;
+import android.os.RemoteException;
 import android.samshah.IExecutionZoneService;
 import android.os.Looper;
 import android.os.Bundle;
@@ -25,6 +28,7 @@ import java.io.FileWriter;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -93,7 +97,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     //shah monitoring jul 17 2017
 
     //shah jul 19 2017
-    private static boolean LOG_BULK_MONITORING = true;
+    private static boolean LOG_BULK_MONITORING = false;
     private static final String TAG_LOG_INTENT_BULK = "SHAHINTENTBULKLOG";
     private static final String TAG_LOG_PERMISSIONS_BULK = "SHAHPERMISSIONSBULKLOG";
 
@@ -199,6 +203,20 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             }
         }
     }
+
+    public int[] getPackageGids(String packageName, int userId) {
+        int[] permGids = null;
+
+        try {
+        final IPackageManager pm = AppGlobals.getPackageManager();
+        permGids = pm.getPackageGids(packageName, userId);
+        } catch (RemoteException e) {
+            throw e.rethrowAsRuntimeException();
+        }
+
+        return permGids;
+    }
+
     public void scheduleAgentStop(final int reqId, String agentName, int duration) {
         class OneShotTask implements Runnable {
             String agentName;
@@ -1435,9 +1453,6 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
                 for (String check : rules)//only allows time for now, phone number will be added later
                 {
-                    SimpleDateFormat simpleDateFormat = new SimpleDateFormat("HH:mm");
-                    Date startTime = null;
-                    Date endTime = null;
                     boolean time_always = false;
 
                     String time = check.substring(check.indexOf('[') + 1, check.lastIndexOf(']'));
@@ -1452,24 +1467,37 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 
                     if (startendTime[1].toUpperCase().equals("ALWAYS"))
                         time_always = true;
-                    else {
-                        startTime = simpleDateFormat.parse(startendTime[1]);
-                        endTime = simpleDateFormat.parse(startendTime[2]);
-                    }
+
                     if (DEBUG_ENABLE)
                         Log.d(TAG, "SHAH in checkzonepermission rule time_always: " + time_always);
                     if (DEBUG_ENABLE)
                         if (time_always == false)
                             Log.d(TAG, "SHAH in checkzonepermission current rule: " + check + " parsed starttime: " + startTime.toString() + " endtime:" + endTime.toString());
 
-                    Date now = new Date();
+
 
                     if (allowordeny.toUpperCase().contains("DENY")) {
                         if (time_always == true)
                             return PERMISSION_NOT_PERMITTED_IN_ZONE;
-                        else if (startTime.before(now) && endTime.after(now)) {
-                            return PERMISSION_NOT_PERMITTED_IN_ZONE;
+                        else {
+                            int start = Integer.parseInt(startendTime[1]);
+                            int end = Integer.parseInt(startendTime[2]);
+
+                            Calendar calendar = Calendar.getInstance();
+                            int hours = calendar.get(Calendar.HOUR_OF_DAY);
+
+                            if(start > end) {
+                                if(hours > start || hours < end)
+                                    return PERMISSION_NOT_PERMITTED_IN_ZONE;
+                            }
+                            else
+                            {
+                                if(hours > start && hours < end)
+                                    return PERMISSION_NOT_PERMITTED_IN_ZONE;
+                            }
                         }
+
+
                     }
 
                 }
