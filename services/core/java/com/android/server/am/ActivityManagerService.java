@@ -64,6 +64,7 @@ import android.os.WorkSource;
 import android.os.storage.IMountService;
 import android.os.storage.MountServiceInternal;
 import android.os.storage.StorageManager;
+import android.samshah.ExecutionZoneManager;
 import android.service.voice.IVoiceInteractionSession;
 import android.service.voice.VoiceInteractionSession;
 import android.util.ArrayMap;
@@ -3283,20 +3284,21 @@ public final class ActivityManagerService extends ActivityManagerNative
             int mountExternal = Zygote.MOUNT_EXTERNAL_NONE;
             if (!app.isolated) {
                 int[] permGids = null;
-                try {
+                //try {
                     //shah oct 21 2017
                     if(DEBUG_ENABLE_SHAH) Log.d("GIDCHANGESHAH", "Get GIDs from execution zone manager");
                     checkTime(startTime, "startProcess: getting gids from execution zone manager");
                     //final IPackageManager pm = AppGlobals.getPackageManager();
-                    final Exec
-                    permGids = pm.getPackageGids(app.info.packageName, app.userId);
+                    final ExecutionZoneManager mExecutionZoneManager = ExecutionZoneManager.getExecutionZoneManager();
+                    //permGids = pm.getPackageGids(app.info.packageName, app.userId);
+                    permGids = mExecutionZoneManager.getPackageGids(app.info.packageName, app.userId);
                     MountServiceInternal mountServiceInternal = LocalServices.getService(
                             MountServiceInternal.class);
                     mountExternal = mountServiceInternal.getExternalStorageMountMode(uid,
                             app.info.packageName);
-                } catch (RemoteException e) {
-                    throw e.rethrowAsRuntimeException();
-                }
+//                } catch (RemoteException e) {
+//                    throw e.rethrowAsRuntimeException();
+//                }
 
                 /*
                  * Add shared application and profile GIDs so applications can share some

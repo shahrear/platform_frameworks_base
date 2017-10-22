@@ -19,19 +19,22 @@ import android.os.Looper;
 import android.os.Bundle;
 import android.content.Context;
 import android.os.Message;
+import android.text.TextUtils;
 import android.text.format.Time;
 import android.util.Log;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
-import java.text.SimpleDateFormat;
+
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.Date;
+
 import java.util.HashMap;
 import java.util.HashSet;
+
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -101,7 +104,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
     private static final String TAG_LOG_INTENT_BULK = "SHAHINTENTBULKLOG";
     private static final String TAG_LOG_PERMISSIONS_BULK = "SHAHPERMISSIONSBULKLOG";
 
-    private static boolean ALLOWALL_ENABLE = true;
+    private static boolean ALLOWALL_ENABLE = false;
 
     private final Object zonedbLock = new Object();
     private final DatabaseHelper openHelper;
@@ -214,7 +217,77 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             throw e.rethrowAsRuntimeException();
         }
 
+//        Log.d(TAG,"SHAH Debug Log in GetPackageGids, package: "+packageName+" permgids: "+intArrayToString(permGids));
+//
+//        Log.d(TAG,"SHAH Debug Log in GetPackageGids, checkzone bluetooth: "+checkZonePermission("android.permission.BLUETOOTH",packageName));
+//        Log.d(TAG,"SHAH Debug Log in GetPackageGids, checkzone bluetooth_admin: "+checkZonePermission("android.permission.BLUETOOTH_ADMIN",packageName));
+//        Log.d(TAG,"SHAH Debug Log in GetPackageGids, checkzone access network: "+checkZonePermission("android.permission.ACCESS_NETWORK_STATE",packageName));
+//
+
+        if (checkZonePermission("android.permission.BLUETOOTH",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE
+                || checkZonePermission("android.permission.BLUETOOTH_ADMIN",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
+            permGids = removeNumber(permGids, 3001);
+            permGids = removeNumber(permGids, 3002);
+
+            //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3001 3002"+" permgids: "+intArrayToString(permGids));
+        }
+        if (checkZonePermission("android.permission.ACCESS_NETWORK_STATE",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
+            permGids = removeNumber(permGids, 3005);
+            permGids = removeNumber(permGids, 3006);
+            permGids = removeNumber(permGids, 3007);
+            //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3005 3006 3007"+" permgids: "+intArrayToString(permGids));
+        }
+
+        if (checkZonePermission("android.permission.INTERNET",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
+            //iptables rule block
+        }
+        else
+        {
+            //iptables rule remove block
+
+        }
+
+
         return permGids;
+    }
+
+    public static String intArrayToString (int [] numbers)
+    {
+        String logs = "";
+        for (int number: numbers) {
+            logs += number + ",";
+        }
+        return logs;
+
+    }
+
+    public static int[] removeNumber(int[] numbers, int target) {
+        int count = 0;
+
+        // loop over array to count number of target values.
+        // this required to calculate length of new array
+        for (int number: numbers) {
+            if (number == target) {
+                count++;
+            }
+        }
+
+        // if original array doesn't contain number to removed
+        // return same array
+        if (count == 0) {
+            return numbers;
+        }
+
+        int[] result = new int[numbers.length - count];
+        int index = 0;
+        for (int value : numbers) {
+            if (value != target) {
+                result[index] = value;
+                index++;
+            }
+        }
+        numbers = null; // make original array eligible for GC
+        return result;
     }
 
     public void scheduleAgentStop(final int reqId, String agentName, int duration) {
@@ -336,7 +409,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         final SQLiteDatabase db = openHelper.getReadableDatabase();
 
         if(DEBUG_ENABLE)
-            Log.d(TAG,"SHAH Debug Log in logIntent");
+            //Log.d(TAG,"SHAH Debug Log in logIntent");
 
         try {
             Cursor c = db.rawQuery("SELECT " + MONITROING_REQUESTS_DATAFILE + " FROM " + TABLE_MONITROING_REQUESTS
@@ -362,7 +435,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         }
         catch (Exception e) {
             // Log, don't crash!
-            Log.e(TAG, "Log SHAH Exception in getAllPolicies, message: "+e.getMessage());
+            Log.e(TAG, "Log SHAH Exception in logintent, message: "+e.getMessage());
         }
     }
 
@@ -731,15 +804,18 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     return false;
                 }
 
+
                 int zone_id = getZoneID(zoneName);
                 values.remove(ZONES_NAME);
                 values.put(ZONEPOLICIES_ZONE_ID, zone_id);
 
                 String policyIdList = "";
-                for(String ss:policyIdList.split(";"))
-                {
-                    if(!ss.isEmpty())
-                        policyIdList += getPolicyID(ss) + ";";
+
+                if(!policyList.isEmpty()) {
+                    for (String ss : policyList.split(";")) {
+                        if (!ss.isEmpty())
+                            policyIdList += getPolicyID(ss) + ";";
+                    }
                 }
 
                 values.put(ZONEPOLICIES_POLICYLIST, policyIdList);
@@ -752,6 +828,7 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     db.close();
                     return false;
                 }
+
 
                 db.setTransactionSuccessful();
             } finally {
@@ -1243,6 +1320,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
             Log.e(TAG, "Log SHAH Exception in getPoliciesOfZone when fetching policylist, message: "+e.getMessage());
         }
 
+        if (policylist == null)
+            return null;
+
         for(String policyid: policylist.split(";")) {
             if(policyid.isEmpty()==false) {
                 try {
@@ -1468,12 +1548,12 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                     if (startendTime[1].toUpperCase().equals("ALWAYS"))
                         time_always = true;
 
-                    if (DEBUG_ENABLE)
+                    if (DEBUG_ENABLE) {
                         Log.d(TAG, "SHAH in checkzonepermission rule time_always: " + time_always);
-                    if (DEBUG_ENABLE)
-                        if (time_always == false)
-                            Log.d(TAG, "SHAH in checkzonepermission current rule: " + check + " parsed starttime: " + startTime.toString() + " endtime:" + endTime.toString());
 
+                        if (time_always == false)
+                            Log.d(TAG, "SHAH in checkzonepermission current rule: " + check + " parsed starttime: " + startendTime[1] + " endtime:" + startendTime[2]);
+                    }
 
 
                     if (allowordeny.toUpperCase().contains("DENY")) {

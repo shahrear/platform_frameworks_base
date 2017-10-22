@@ -30280,6 +30280,7 @@ package android.samshah {
     method public java.lang.String[] getAppsOfZoneByPackageName(java.lang.String);
     method public static synchronized android.samshah.ExecutionZoneManager getExecutionZoneManager();
     method public java.lang.String getMonitoringResult(java.lang.String, java.lang.String, int);
+    method public int[] getPackageGids(java.lang.String, int);
     method public java.lang.String[] getPolicies();
     method public java.lang.String[] getPoliciesOfZone(java.lang.String);
     method public java.util.Map<java.lang.String, java.lang.String> getPoliciesOfZoneWithRules(java.lang.String);
@@ -30304,6 +30305,7 @@ package android.samshah {
     method public abstract java.lang.String[] getAllZones() throws android.os.RemoteException;
     method public abstract java.lang.String[] getAppsOfZoneByPackageName(java.lang.String) throws android.os.RemoteException;
     method public abstract java.lang.String getMonitoringResult(java.lang.String, java.lang.String, int) throws android.os.RemoteException;
+    method public abstract int[] getPackageGids(java.lang.String, int) throws android.os.RemoteException;
     method public abstract java.lang.String[] getPoliciesOfZone(java.lang.String) throws android.os.RemoteException;
     method public abstract java.util.Map getPoliciesOfZoneWithRules(java.lang.String) throws android.os.RemoteException;
     method public abstract java.lang.String getRulesOfPolicy(java.lang.String) throws android.os.RemoteException;
