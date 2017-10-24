@@ -10,6 +10,8 @@ import android.database.Cursor;
 import android.database.DatabaseUtils;
 import android.database.sqlite.SQLiteDatabase;
 import android.database.sqlite.SQLiteOpenHelper;
+import android.net.LocalSocket;
+import android.net.LocalSocketAddress;
 import android.os.Environment;
 import android.os.Handler;
 import android.os.Parcelable;
@@ -22,11 +24,16 @@ import android.os.Message;
 import android.text.TextUtils;
 import android.text.format.Time;
 import android.util.Log;
+import android.view.View;
+import android.widget.TextView;
 
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
@@ -152,6 +159,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
         private static final int LOG_INTENT = 401;
         private static final int LOG_PERMISSIONS = 402;
 
+        //shah oct 23 2017
+        private static final int COMM_NATIVE = 203;
+
         @Override
         public void handleMessage(Message msg) {
             try {
@@ -200,6 +210,9 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
                 else if (msg.what == LOG_PERMISSIONS) {
 
                 }
+                else if (msg.what == COMM_NATIVE) {
+                    communicateNativeCommand(msg.getData().getString("message"));
+                }
             } catch (Exception e) {
                 // Log, don't crash!
                 Log.e(TAG, "Log SHAH Exception in handleMessage");
@@ -224,31 +237,64 @@ public class ExecutionZoneService extends IExecutionZoneService.Stub {
 //        Log.d(TAG,"SHAH Debug Log in GetPackageGids, checkzone access network: "+checkZonePermission("android.permission.ACCESS_NETWORK_STATE",packageName));
 //
 
-        if (checkZonePermission("android.permission.BLUETOOTH",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE
-                || checkZonePermission("android.permission.BLUETOOTH_ADMIN",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
-            permGids = removeNumber(permGids, 3001);
-            permGids = removeNumber(permGids, 3002);
+        if(userId > 10000) {
 
-            //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3001 3002"+" permgids: "+intArrayToString(permGids));
-        }
-        if (checkZonePermission("android.permission.ACCESS_NETWORK_STATE",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
-            permGids = removeNumber(permGids, 3005);
-            permGids = removeNumber(permGids, 3006);
-            permGids = removeNumber(permGids, 3007);
-            //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3005 3006 3007"+" permgids: "+intArrayToString(permGids));
-        }
+            if (checkZonePermission("android.permission.BLUETOOTH", packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE
+                    || checkZonePermission("android.permission.BLUETOOTH_ADMIN", packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
+                permGids = removeNumber(permGids, 3001);
+                permGids = removeNumber(permGids, 3002);
 
-        if (checkZonePermission("android.permission.INTERNET",packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
-            //iptables rule block
+                //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3001 3002"+" permgids: "+intArrayToString(permGids));
+            }
+            if (checkZonePermission("android.permission.ACCESS_NETWORK_STATE", packageName) == PERMISSION_NOT_PERMITTED_IN_ZONE) {
+                permGids = removeNumber(permGids, 3005);
+                permGids = removeNumber(permGids, 3006);
+                permGids = removeNumber(permGids, 3007);
+                //Log.d(TAG,"SHAH Debug Log in GetPackageGids, removed 3005 3006 3007"+" permgids: "+intArrayToString(permGids));
+            }
         }
-        else
-        {
-            //iptables rule remove block
-
-        }
-
 
         return permGids;
+    }
+
+    public void communicateNative(String message)
+    {
+        Log.i(TAG, "Log SHAH communicateNativem message: " + message);
+
+        // Creating Bundle object
+        Bundle b = new Bundle();
+
+        // Storing data into bundle
+        b.putString("message", message);
+
+        Message msg = Message.obtain();
+        msg.what = ExecutionZoneWorkerHandler.COMM_NATIVE;
+        msg.setData(b);
+        mHandler.sendMessage(msg);
+    }
+
+    //if not present, insert, otherwise update
+    private void communicateNativeCommand (String message)
+    {
+        BufferedWriter bw = null;
+
+        try {
+            // APPEND MODE SET HERE
+            bw = new BufferedWriter(new FileWriter("/data/system/samcommands.dat", true));
+            bw.write(message);
+            bw.newLine();
+            bw.flush();
+        } catch (IOException ioe) {
+            Log.d(TAG, "Log SHAH Exception in commnative, message: "+ioe.getMessage());
+        } finally {                       // always close the file
+            if (bw != null) try {
+                bw.close();
+            } catch (IOException ioe2) {
+                Log.d(TAG, "Log SHAH Exception in commnative, message: "+ioe2.getMessage());
+            }
+        } // end try/catch/finally
+
+
     }
 
     public static String intArrayToString (int [] numbers)
